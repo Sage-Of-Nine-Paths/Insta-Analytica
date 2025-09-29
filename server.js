@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { ApifyClient } from "apify-client";
 import 'dotenv/config';
+import axios from "axios";
 
 
 // Use the modern Gemini SDK
@@ -15,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = 3000; // ye code kaha pe chipkana hai?
 
 // Serve static frontend
 app.get('/', (req, res) => {
@@ -28,6 +29,17 @@ app.use(express.json());
 // Initialize Apify client
 const client = new ApifyClient({
   token: process.env.APIFY_KEY
+});
+
+app.get("/api/proxy-image", async (req, res) => {
+  try {
+    const { url } = req.query;
+    const response = await axios.get(url, { responseType: "arraybuffer" });
+    res.set("Content-Type", "image/jpeg");
+    res.send(response.data);
+  } catch (err) {
+    res.status(500).send("Image fetch failed");
+  }
 });
 
 app.post("/api/scrape", async (req, res) => {
@@ -113,6 +125,11 @@ app.post("/api/scrape", async (req, res) => {
       console.error("Gemini summary error:", err);
       summary = "Summary not available.";
     }
+    // Wrap profilePic in proxy so browser doesn’t hit Instagram directly
+    const proxiedProfilePic = profile.profilePicUrlHD || profile.profilePicUrl
+      ? `/api/proxy-image?url=${encodeURIComponent(profile.profilePicUrlHD || profile.profilePicUrl)}`
+      : "ai-profile.jpg";
+
     res.json({
       profile: {
         name: profile.fullName ?? profile.username,
@@ -120,12 +137,13 @@ app.post("/api/scrape", async (req, res) => {
         followers: profile.followersCount,
         following: profile.followsCount,
         posts: profile.postsCount,
-        profilePic: profile.profilePicUrlHD || profile.profilePicUrl || "",
+        profilePic: proxiedProfilePic,   // ✅ use proxied image
         summary
       },
       engagement: { avgLikes, avgComments, engagementRate },
       posts
     });
+
 
   } catch (err) {
     console.error("Error in /api/scrape:", err.message || err);
