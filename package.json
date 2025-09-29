@@ -1,0 +1,13 @@
+
+{
+  "name": "instagram-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "apify-client": "^2.10.1"
+  }
+}
