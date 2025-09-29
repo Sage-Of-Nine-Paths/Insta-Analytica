@@ -2,6 +2,14 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ApifyClient } from "apify-client";
+import 'dotenv/config';
+
+
+// Use the modern Gemini SDK
+import { GoogleGenAI } from "@google/genai";
+// import * as genai from '@google/genai';
+
+const gemini = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,12 +18,16 @@ const app = express();
 const PORT = 3000;
 
 // Serve static frontend
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'Aindex.html'));
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
 // Initialize Apify client
 const client = new ApifyClient({
-  token: "apify_api_URrb8itHuHDbQbOvuQVYH5ZRgyfilN40YzhQ" // 🔑 replace with your token
+  token: process.env.APIFY_KEY
 });
 
 app.post("/api/scrape", async (req, res) => {
@@ -76,7 +88,31 @@ app.post("/api/scrape", async (req, res) => {
         engagementRate = ((avgLikes + avgComments) / profile.followersCount) * 100;
       }
     }
+    // --- 4) Generate short summary using Gemini ---
+    let summary = "";
+    try {
+      const prompt = `Write a short 6-7 sentence professional summary + latest news(if applicable) about an Instagram profile with the following details:
+  Name: ${profile.fullName ?? profile.username}
+  Username: ${profile.username}
+  Followers: ${profile.followersCount}
+  Following: ${profile.followsCount}
+  Posts: ${profile.postsCount}`;
 
+      // Use a more modern model like gemini-1.5-flash
+      const result = await gemini.models.generateContent({
+        model: "gemini-2.5-flash",  // latest model
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an assistant that summarizes social media profiles."
+        }
+      });
+
+      summary = result.text || "Summary not available.";
+
+    } catch (err) {
+      console.error("Gemini summary error:", err);
+      summary = "Summary not available.";
+    }
     res.json({
       profile: {
         name: profile.fullName ?? profile.username,
@@ -84,7 +120,8 @@ app.post("/api/scrape", async (req, res) => {
         followers: profile.followersCount,
         following: profile.followsCount,
         posts: profile.postsCount,
-        profilePic: profile.profilePicUrlHD || profile.profilePicUrl || ""
+        profilePic: profile.profilePicUrlHD || profile.profilePicUrl || "",
+        summary
       },
       engagement: { avgLikes, avgComments, engagementRate },
       posts
