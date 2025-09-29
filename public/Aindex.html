@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NeonLens — AI Instagram Insights</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg:#06060a;
+      --panel:#0d0f16;
+      --muted:#9aa2b2;
+      --accent:#7cf3ff;
+      --accent-2:#8a6bff;
+      --glass: rgba(255,255,255,0.03);
+      --glow: 0 8px 30px rgba(124,243,255,0.08), inset 0 1px 0 rgba(255,255,255,0.02);
+      --neon: 0 0 18px rgba(124,243,255,0.12);
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;background:linear-gradient(180deg,#020306 0%, #060712 60%); color: #dce7ff; margin:0; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale}
+    a{color:inherit;text-decoration:none}
+    /* Top nav */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;position:sticky;top:0;z-index:50;background:linear-gradient(180deg, rgba(6,6,10,0.45), rgba(6,6,10,0.15));backdrop-filter: blur(6px);border-bottom:1px solid rgba(255,255,255,0.02)}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 8px 30px rgba(138,107,255,0.12);display:flex;align-items:center;justify-content:center;font-weight:800;color:#04111a}
+    .navlinks{display:flex;gap:22px;align-items:center}
+    .navlinks a {
+  position: relative; /* so ::after is positioned correctly */
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  overflow: hidden; /* keeps underline neat */
+}
+
+.navlinks a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;   /* distance below text */
+  width: 0%;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #ff0080,
+    #ff8c00,
+    #40ff00,
+    #00ffff,
+    #8000ff,
+    #ff0080
+  );
+  background-size: 300% 100%;
+  transition: width 0.35s ease;
+}
+
+.navlinks a:hover {
+  color: #fff; /* brighten text on hover */
+  text-shadow: 0 0 8px rgba(255,255,255,0.2);
+}
+
+.navlinks a:hover::after {
+  width: 100%;
+  animation: rainbowMove 3s linear infinite;
+}
+
+@keyframes rainbowMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+    .cta{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 14px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.04);background:var(--glass)}
+    .btn.primary{background:linear-gradient(90deg, rgba(124,243,255,0.06), rgba(138,107,255,0.05));box-shadow:var(--glow);color:var(--accent);border:1px solid rgba(124,243,255,0.12)}
+    .btn.ghost{background:transparent;color:var(--muted)}
+    .topbar .btn:active{transform:translateY(1px)}
+
+    /* Hero */
+    .hero{
+      display:grid;
+      grid-template-columns: 1fr 520px;
+      gap:40px;
+      padding:48px;
+      align-items:center;
+      min-height:72vh;
+      position:relative;
+      overflow:visible;
+    }
+    .hero-left{max-width:720px}
+    .eyebrow{display:inline-block;padding:6px 10px;border-radius:999px;font-size:13px;color:var(--accent);background:linear-gradient(90deg, rgba(124,243,255,0.04), rgba(138,107,255,0.03));border:1px solid rgba(124,243,255,0.06);margin-bottom:18px}
+    h1{font-size:44px;line-height:1.03;margin:6px 0 18px;color:#e9f7ff;text-shadow:0 6px 30px rgba(124,243,255,0.03)}
+    .lead{color:var(--muted);font-size:16px;margin-bottom:28px}
+    .hero-actions{display:flex;gap:12px;align-items:center}
+    .input-inline{display:flex;background:rgba(255,255,255,0.03);padding:8px;border-radius:12px;align-items:center;gap:8px;border:1px solid rgba(255,255,255,0.03)}
+    .input-inline input{background:transparent;border:0;color:#fff;outline:none;padding:6px 8px;width:220px}
+    .small-muted{font-size:13px;color:var(--muted);margin-top:10px}
+
+    /* Hero right: preview card */
+    .hero-card{
+      border-radius:14px;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:var(--glow);border:1px solid rgba(255,255,255,0.02);
+      position:relative; overflow:hidden;
+    }
+    .hero-card .bg-visual{
+      position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(10px) saturate(1.2) contrast(1.02);opacity:0.28;transform:scale(1.06);z-index:0;
+    }
+    .profile-preview{position:relative;z-index:1;display:flex;gap:12px;align-items:center}
+    .profile-preview img{width:64px;height:64px;border-radius:14px;backdrop-filter:blur(6px);box-shadow:0 6px 24px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.04)}
+    .profile-info h3{margin:0;font-size:18px}
+    .profile-info p{margin:0;color:var(--muted);font-size:13px}
+    .metrics{display:flex;gap:12px;margin-top:14px}
+    .metric{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);flex:1;text-align:center}
+    .metric strong{display:block;font-size:18px}
+    .metric small{display:block;color:var(--muted);font-size:12px}
+
+    /* Features */
+    .features{display:flex;gap:16px;margin-top:28px}
+    .feature{flex:1;padding:14px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border:1px solid rgba(255,255,255,0.02);box-shadow:var(--neon);transition:transform .18s}
+    .feature:hover{transform:translateY(-6px);box-shadow:0 14px 40px rgba(124,243,255,0.04)}
+    .feature h4{margin:0 0 8px}
+
+    /* Landing sections */
+    .container{padding:48px 32px}
+    .section{padding:48px 0;border-top:1px solid rgba(255,255,255,0.02)}
+    .center{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+
+    /* Footer */
+    footer{padding:28px 32px;color:var(--muted);font-size:13px}
+
+    /* Modal / Login page */
+    .overlay{position:fixed;inset:0;background:linear-gradient(180deg, rgba(3,4,6,0.6), rgba(6,6,10,0.6));display:none;align-items:center;justify-content:center;z-index:200}
+    .overlay.open{display:flex}
+    .auth-card{width:420px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:22px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 40px rgba(2,6,12,0.6)}
+    .auth-card h3{margin:0 0 8px}
+    .form-row{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+    .form-row input{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px;border-radius:10px;color:#fff;outline:none}
+    .alt-actions{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:10px}
+
+    /* Dashboard */
+    .app{display:none;padding:24px 32px;min-height:calc(100vh - 78px)}
+    .app.open{display:block}
+    .dash-grid{display:grid;grid-template-columns:280px 1fr;gap:22px;align-items:start}
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+    .search-card{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .search-card input{flex:1;background:transparent;border:0;outline:none;color:#fff;padding:8px}
+    .quick-links{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+    .nav-pill{padding:10px;border-radius:10px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+    .nav-pill.active{background:linear-gradient(90deg, rgba(124,243,255,0.04), rgba(138,107,255,0.02));color:var(--accent);box-shadow:var(--neon)}
+
+    .main-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+    .top-stats{display:flex;gap:12px}
+    .top-stat{flex:1;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border:1px solid rgba(255,255,255,0.02);text-align:center}
+    .engagement-card{margin-top:12px;display:flex;gap:12px}
+    .chart-wrap{flex:1;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border:1px solid rgba(255,255,255,0.02)}
+    .posts-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+    .post{position:relative;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);background:#05060a}
+    .post img{width:100%;height:110px;object-fit:cover;display:block}
+    .post .meta{padding:8px;font-size:12px;display:flex;justify-content:space-between;color:var(--muted)}
+    .post:hover{transform:translateY(-6px);box-shadow:0 14px 40px rgba(138,107,255,0.04)}
+
+    /* small responsive */
+    @media (max-width:1000px){
+      .hero{grid-template-columns:1fr;padding:28px}
+      .hero-card{display:none}
+      .dash-grid{grid-template-columns:1fr}
+      .posts-grid{grid-template-columns:repeat(2,1fr)}
+    }
+
+    /* micro-animations */
+    .fade-in{animation:fadeIn .8s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    /* glow hover for buttons */
+    .glow-hover:hover{box-shadow:0 0 26px rgba(124,243,255,0.08), 0 10px 30px rgba(124,243,255,0.03)}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">NL</div>
+      <div>
+        <div style="font-weight:800">NeonLens</div>
+        <div style="font-size:12px;color:var(--muted)">AI Instagram Insights</div>
+      </div>
+    </div>
+
+    <nav class="navlinks" aria-label="Top navigation">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="cta">
+      <button class="btn ghost"   onclick = "location.href='index.html'">Try Demo</button>
+      <button class="btn primary" onclick = "location.href='index.html'">Sign In</button>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left fade-in">
+      <div class="eyebrow">Instant influencer intelligence</div>
+      <h1>Minimal. Fast. Futuristic <span style="color:var(--accent)">Instagram analytics</span> powered by AI</h1>
+      <p class="lead">Type an Instagram handle and get a compact report: profile summary, followers, engagement metrics, and recent posts with hashtags. Built for agencies and creators who want quick decisions</p>
+
+      <div class="small-muted">No credit card required • Private by design</div>
+
+      <div class="features" style="margin-top:22px">
+        <div class="feature">
+          <h4>Instant Overview</h4>
+          <div style="color:var(--muted);font-size:13px">Name, handle, profile picture, followers, posts and more — shown immediately.</div>
+        </div>
+        <div class="feature">
+          <h4>Engagement Analytics</h4>
+          <div style="color:var(--muted);font-size:13px">Average likes/comments, engagement rate, trend charts & post breakdown.</div>
+        </div>
+        <div class="feature">
+          <h4>Post-Level Detail</h4>
+          <div style="color:var(--muted);font-size:13px">Thumbnail, caption, likes, comments and hashtags for recent posts.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right preview, using AI image as blurred bg -->
+    <aside class="hero-card fade-in" aria-hidden="true">
+      <div class="bg-visual" id="hero-bg" style="background-image: url('ai-hero.jpg');"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="profile-preview">
+          <img src="ai-profile.jpg" alt="profile preview" id="preview-avatar" onerror="this.style.display='none'"/>
+          <div class="profile-info">
+            <h3 id="preview-name">Sierra Nova</h3>
+            <p id="preview-handle">@sierra.nova</p>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800;font-size:18px;color:var(--accent)">Influence Score</div>
+          <div style="font-weight:700;font-size:26px;color:#ffd6ff">86</div>
+        </div>
+      </div>
+
+      <div class="metrics" role="list" aria-label="example metrics">
+        <div class="metric">
+          <strong id="preview-followers">122k</strong>
+          <small>Followers</small>
+        </div>
+        <div class="metric">
+          <strong id="preview-following">421</strong>
+          <small>Following</small>
+        </div>
+        <div class="metric">
+          <strong id="preview-posts">312</strong>
+          <small>Posts</small>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Landing sections -->
+  <div class="container">
+    <section id="features" class="section center">
+      <h2 style="font-size:28px">Why NeonLens?</h2>
+      <p style="color:var(--muted);max-width:780px">Designed for speed and clarity: the dashboard surfaces the essentials (basic profile info, engagement stats, per-post breakdown) in a compact, readable layout. Neon accents keep attention on important numbers while the background art adds depth and identity.</p>
+
+      <div style="display:flex;gap:18px;margin-top:28px;flex-wrap:wrap;justify-content:center">
+        <div style="width:260px" class="feature">
+          <h4>Privacy-first</h4>
+          <p style="color:var(--muted);font-size:13px">We only fetch public data; you control lookups and stored insight snapshots.</p>
+        </div>
+        <div style="width:260px" class="feature">
+          <h4>AI-enhanced visualizations</h4>
+          <p style="color:var(--muted);font-size:13px">Smart insights like estimated engagement trend and tag cloud highlight what matters.</p>
+        </div>
+        <div style="width:260px" class="feature">
+          <h4>Export & share</h4>
+          <p style="color:var(--muted);font-size:13px">Quick PDF or CSV export for client reports (coming in pro).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <div style="display:flex;gap:18px;align-items:center">
+        <div style="flex:1">
+          <h3>How it works</h3>
+          <ol style="color:var(--muted)">
+            <li>Type an Instagram handle and press Analyze.</li>
+            <li>We gather public profile metrics and the five most recent posts.</li>
+            <li>The dashboard shows averages and per-post details, plus charts for engagement.</li>
+          </ol>
+          <p style="color:var(--muted)">In this demo the fetch is simulated — integrate your backend to call Instagram Graph API or your scraper to return the same JSON shape.</p>
+        </div>
+
+        <div style="width:460px">
+          <!-- small mock dashboard preview -->
+          <div class="hero-card" style="padding:12px">
+            <div style="display:flex;gap:12px;align-items:center">
+              <img src="ai-profile.jpg" style="width:48px;height:48px;border-radius:10px" alt="pf"/>
+              <div>
+                <strong id="mini-name">Sierra Nova</strong><br>
+                <small style="color:var(--muted)">@sierra.nova</small>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <div class="metric"><strong>122k</strong><small>Followers</small></div>
+              <div class="metric"><strong>6.8%</strong><small>Engagement</small></div>
+              <div class="metric"><strong>1.2k</strong><small>Avg Likes</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing" class="section center">
+      <h3>Pricing</h3>
+      <p style="color:var(--muted);max-width:700px">Free tier for experiments; professional plans unlock team features and historic trends.</p>
+      <div style="display:flex;gap:14px;margin-top:18px">
+        <div class="feature" style="width:220px">
+          <h4>Free</h4>
+          <div style="font-weight:800;font-size:20px">Free</div>
+          <p style="color:var(--muted)">Up to 5 lookups / day • Basic dashboards</p>
+          <div style="margin-top:8px"><button class="btn primary" onclick = "location.href='index.html'">Get started</button></div>
+        </div>
+        <div class="feature" style="width:220px">
+          <h4>Pro</h4>
+          <div style="font-weight:800;font-size:20px">$19/mo</div>
+          <p style="color:var(--muted)">Unlimited lookups • Export • Team seats</p>
+          <div style="margin-top:8px"><button class="btn primary" onclick = "location.href='index.html'">Try Pro</button></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>© NeonLens 2025 · Built with care</div>
+        <div style="color:var(--muted)">Privacy • Terms • Contact</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Login modal -->
+  <div id="auth-overlay" class="overlay" role="dialog" aria-hidden="true">
+    <div class="auth-card fade-in" role="document">
+      <h3>Sign in to NeonLens</h3>
+      <p style="color:var(--muted);margin-top:0">Use your email or continue with SSO</p>
+      <div class="form-row">
+        <input id="login-email" placeholder="Email" type="email" />
+        <input id="login-pass" placeholder="Password" type="password" />
+      </div>
+      <div class="alt-actions">
+        <div style="display:flex;gap:8px">
+          <button class="btn primary" id="login-btn">Sign in</button>
+          <button class="btn" id="login-demo">Demo</button>
+        </div>
+        <a href="#" style="color:var(--muted)">Forgot?</a>
+      </div>
+      <div style="margin-top:12px;color:var(--muted);font-size:13px">Or sign in with</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" style="flex:1">Sign in with Google</button>
+        <button class="btn" style="flex:1">SSO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard app (hidden until analyze/demo) -->
+  <main id="app" class="app" aria-live="polite">
+    <div class="dash-grid">
+      <aside class="sidebar fade-in">
+        <div style="display:flex;align-items:center;gap:12px">
+          <img src="ai-profile.jpg" width="56" height="56" style="border-radius:10px" id="sidebar-avatar" alt="avatar"/>
+          <div>
+            <div id="sidebar-name" style="font-weight:800">Sierra Nova</div>
+            <div style="color:var(--muted);font-size:13px" id="sidebar-handle">@sierra.nova</div>
+          </div>
+        </div>
+
+        <div class="search-card" style="margin-top:12px;background:rgba(255,255,255,0.01);padding:8px;border-radius:10px">
+          <input id="search-handle" placeholder="Enter handle e.g. @influencer" />
+          <button class="btn primary" id="search-go">Go</button>
+        </div>
+
+        <div class="quick-links">
+          <div class="nav-pill active">Overview</div>
+          <div class="nav-pill">Posts</div>
+          <div class="nav-pill">Audience</div>
+          <div class="nav-pill">Exports</div>
+          <div class="nav-pill">Settings</div>
+        </div>
+
+        <div style="margin-top:18px">
+          <small style="color:var(--muted)">Last checked</small>
+          <div id="last-checked">—</div>
+        </div>
+      </aside>
+
+      <section class="main-panel fade-in" aria-label="Dashboard main">
+        <!-- Profile & top stats -->
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <img id="main-avatar" src="ai-profile.jpg" width="72" height="72" style="border-radius:12px" alt="profile"/>
+              <div>
+                <div style="font-weight:800;font-size:20px" id="main-name">Sierra Nova</div>
+                <div style="color:var(--muted)" id="main-handle">@sierra.nova</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="text-align:right">
+              <small style="color:var(--muted)">Engagement rate</small>
+              <div style="font-weight:800;font-size:22px;color:var(--accent)" id="main-engagement">6.8%</div>
+            </div>
+            <div style="text-align:right">
+              <small style="color:var(--muted)">Avg likes</small>
+              <div style="font-weight:800;font-size:22px" id="main-avg-likes">1.2k</div>
+            </div>
+            <div>
+              <button class="btn primary" id="export-btn">Export CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="top-stats" style="margin-top:16px">
+          <div class="top-stat">
+            <small style="color:var(--muted)">Followers</small>
+            <div style="font-weight:800;font-size:20px" id="stat-followers">122k</div>
+            <div style="color:var(--muted);font-size:12px">+2.4% last 7d</div>
+          </div>
+          <div class="top-stat">
+            <small style="color:var(--muted)">Following</small>
+            <div style="font-weight:800;font-size:20px" id="stat-following">421</div>
+            <div style="color:var(--muted);font-size:12px">—</div>
+          </div>
+          <div class="top-stat">
+            <small style="color:var(--muted)">Posts</small>
+            <div style="font-weight:800;font-size:20px" id="stat-posts">312</div>
+            <div style="color:var(--muted);font-size:12px">Recent 5 shown</div>
+          </div>
+        </div>
+
+        <div class="engagement-card" style="margin-top:14px">
+          <div class="chart-wrap">
+            <small style="color:var(--muted)">Engagement (likes + comments) — last 8 posts</small>
+            <canvas id="engagementChart"></canvas>
+          </div>
+          <div class="chart-wrap" style="width:320px">
+            <small style="color:var(--muted)">Followers growth</small>
+            <canvas id="followersChart"></canvas>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+          <h4 style="margin:0">Recent posts</h4>
+          <small style="color:var(--muted)">Showing latest 5 posts with hashtags and counts</small>
+        </div>
+
+        <div class="posts-grid" id="posts-grid">
+          <!-- posts injected here -->
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+<script>
+/*
+  Demo JS:
+  - Simulates fetching Instagram data when user inputs a handle
+  - Populates the landing preview, main dashboard, and charts
+  - Replace the simulateFetch() function with a real API call to your backend
+*/
+
+const sampleData = {
+  handle: "@sierra.nova",
+  name: "Sierra Nova",
+  profile_picture: "ai-profile.jpg",
+  followers: 122400,
+  following: 421,
+  posts_count: 312,
+  avg_likes: 1200,
+  avg_comments: 85,
+  engagement_rate_percent: 6.8,
+  recent_posts: [
+    {id:"p1", image:"post1.jpg", caption:"Sunset vibes / explore the city #travel #sunset", likes:1400, comments:110, hashtags:["#travel","#sunset"]},
+    {id:"p2", image:"post2.jpg", caption:"Morning routines and coffee talks #lifestyle #wellness", likes:1180, comments:78, hashtags:["#lifestyle","#wellness"]},
+    {id:"p3", image:"post3.jpg", caption:"New collab drop! link in bio #partnership", likes:1020, comments:64, hashtags:["#partnership"]},
+    {id:"p4", image:"post4.jpg", caption:"Studio day 🎧 #music #behindthescenes", likes:980, comments:54, hashtags:["#music","#bts"]},
+    {id:"p5", image:"post5.jpg", caption:"Favorite books this month #readinglist", likes:1105, comments:82, hashtags:["#readinglist"]}
+  ]
+};
+
+// Utilities
+function el(id){ return document.getElementById(id) }
+
+// opening login modal
+el('open-login').addEventListener('click', ()=>openAuth())
+el('try-demo-btn').addEventListener('click', ()=>openAppWithData(sampleData))
+el('cta-learn').addEventListener('click', ()=>alert('Product tour: scroll down or click Try Demo.'))
+
+function openAuth(){
+  const overlay = el('auth-overlay')
+  overlay.classList.add('open')
+  overlay.setAttribute('aria-hidden','false')
+}
+document.getElementById('auth-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'auth-overlay') { e.target.classList.remove('open'); e.target.setAttribute('aria-hidden','true') }
+})
+el('login-demo').addEventListener('click', ()=>{ el('auth-overlay').classList.remove('open'); openAppWithData(sampleData) })
+
+// simulate analyze button
+el('hero-analyze').addEventListener('click', ()=> {
+  const handle = el('hero-handle').value.trim() || sampleData.handle
+  simulateFetch(handle).then(data => openAppWithData(data))
+})
+el('search-go').addEventListener('click', ()=> {
+  const handle = el('search-handle').value.trim() || sampleData.handle
+  simulateFetch(handle).then(data => openAppWithData(data))
+})
+
+// Fake fetch — replace this with your backend fetch
+function simulateFetch(handle){
+  return new Promise((resolve)=> {
+    // Small animation: populate preview quickly
+    setTimeout(()=> {
+      // clone sample and update handle & randomize a bit
+      const copy = JSON.parse(JSON.stringify(sampleData));
+      copy.handle = handle.startsWith('@')? handle : ('@'+handle.replace('@',''))
+      copy.name = (copy.handle.length>3)? ('User ' + copy.handle.replace('@','').slice(0,6)) : copy.name;
+      // randomize metrics slightly for demo
+      const rand = Math.round(Math.random()*200-100)
+      copy.followers = Math.max(12000, copy.followers + rand)
+      copy.avg_likes = Math.max(50, copy.avg_likes + Math.round(rand/2))
+      copy.engagement_rate_percent = +(Math.max(0.3, (Math.random()*8)).toFixed(1))
+      copy.recent_posts.forEach((p,idx)=>{ p.likes = Math.max(50, p.likes + (idx*20) + Math.round(Math.random()*200 - 80)); p.comments = Math.max(2, p.comments + Math.round(Math.random()*30-15)) })
+      copy.fetched_at = new Date().toISOString()
+      resolve(copy)
+    }, 450) // simulate short delay for visual effect
+  })
+}
+
+// populate landing preview & main dashboard
+function openAppWithData(data){
+  // hide landing/training view by showing app
+  el('app').classList.add('open')
+  document.documentElement.scrollTop = 0
+
+  // preview updates
+  el('preview-name').textContent = data.name
+  el('preview-handle').textContent = data.handle
+  el('preview-followers').textContent = formatNumber(data.followers)
+  el('preview-following').textContent = formatNumber(data.following)
+  el('preview-posts').textContent = formatNumber(data.posts_count)
+  setImageSafe('preview-avatar', data.profile_picture)
+  setImageSafe('main-avatar', data.profile_picture)
+  setImageSafe('sidebar-avatar', data.profile_picture)
+  setImageSafe('mini-name', data.profile_picture) // harmless
+
+  // main stats
+  el('main-name').textContent = data.name
+  el('main-handle').textContent = data.handle
+  el('main-engagement').textContent = data.engagement_rate_percent + '%'
+  el('main-avg-likes').textContent = formatNumber(data.avg_likes)
+  el('stat-followers').textContent = formatNumber(data.followers)
+  el('stat-following').textContent = formatNumber(data.following)
+  el('stat-posts').textContent = formatNumber(data.posts_count)
+  el('sidebar-name').textContent = data.name
+  el('sidebar-handle').textContent = data.handle
+  el('last-checked').textContent = new Date().toLocaleString()
+
+  // populate posts
+  const postsGrid = el('posts-grid')
+  postsGrid.innerHTML = ''
+  data.recent_posts.slice(0,5).forEach(p => {
+    const node = document.createElement('div')
+    node.className = 'post fade-in'
+    node.innerHTML = `
+      <img src="${p.image}" alt="post ${p.id}" onerror="this.style.filter='grayscale(1)';this.style.opacity='.7'"/>
+      <div class="meta">
+        <div style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.caption)}</div>
+        <div style="text-align:right">
+          <div style="font-size:12px"><strong>${formatNumber(p.likes)}</strong> ❤</div>
+          <div style="font-size:11px;color:var(--muted)">${formatNumber(p.comments)} 💬</div>
+        </div>
+      </div>
+    `
+    postsGrid.appendChild(node)
+  })
+
+  // render charts
+  renderEngagementChart(data.recent_posts)
+  renderFollowersChart(data.followers)
+
+  // update hero blurred bg if exists
+  // if you generated an AI hero image, it'll be used, otherwise the CSS fallback gradient remains
+  const heroBg = document.getElementById('hero-bg')
+  if(heroBg) heroBg.style.backgroundImage = "url('ai-hero.jpg')"
+
+  // scroll to dashboard
+  setTimeout(()=> {
+    el('app').scrollIntoView({behavior:'smooth'})
+  }, 80)
+}
+
+function setImageSafe(id, src){
+  const img = el(id)
+  if(!img) return
+  img.onerror = function(){ this.style.display = 'none' }
+  img.src = src
+}
+
+function formatNumber(n){
+  if(n > 1000000) return (n/1000000).toFixed(1)+'M'
+  if(n > 1000) return (n/1000).toFixed(1)+'k'
+  return n
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
+
+/* Charts: engagement & followers */
+let engagementChart = null
+let followersChart = null
+
+function renderEngagementChart(posts){
+  const ctx = document.getElementById('engagementChart').getContext('2d')
+  const labels = posts.slice(-8).map((p,i)=>`Post ${posts.indexOf(p)+1}`)
+  const engagement = posts.slice(-8).map(p => (p.likes + p.comments))
+  if(engagementChart) engagementChart.destroy()
+  engagementChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Engagement',
+        data: engagement,
+        fill: true,
+        tension: 0.28,
+        borderWidth: 2,
+        borderColor: 'rgba(124,243,255,0.95)',
+        backgroundColor: gradient(ctx, 'rgba(124,243,255,0.14)'),
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#9aa2b2'}},
+        y:{ticks:{color:'#9aa2b2'}, grid:{color:'rgba(255,255,255,0.02)'}}
+      }
+    }
+  })
+}
+
+function renderFollowersChart(followers){
+  const ctx = document.getElementById('followersChart').getContext('2d')
+  const past = 7
+  const values = Array.from({length:past}, (_,i)=> Math.round(followers - (past-i)*Math.random()*400 + Math.random()*200))
+  if(followersChart) followersChart.destroy()
+  followersChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Array.from({length:past}, (_,i)=>`-${past-i}d`),
+      datasets: [{
+        label:'Followers',
+        data: values,
+        borderRadius:6,
+        borderSkipped:false,
+        backgroundColor: gradient(ctx, 'rgba(138,107,255,0.12)', true)
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#9aa2b2'}, grid:{display:false}},
+        y:{ticks:{color:'#9aa2b2'}, grid:{color:'rgba(255,255,255,0.02)'}}
+      }
+    }
+  })
+}
+
+function gradient(ctx, color, bars=false){
+  const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height)
+  if(bars){
+    g.addColorStop(0, 'rgba(138,107,255,0.16)')
+    g.addColorStop(1, 'rgba(124,243,255,0.04)')
+  } else {
+    g.addColorStop(0, color)
+    g.addColorStop(1, 'rgba(124,243,255,0.02)')
+  }
+  return g
+}
+
+// Export CSV demo
+el('export-btn').addEventListener('click', ()=> {
+  const rows = [['post_id','caption','likes','comments','hashtags']]
+  sampleData.recent_posts.forEach(p => rows.push([p.id, p.caption.replace(/,/g,' '), p.likes, p.comments, p.hashtags.join(' ')]))
+  const csv = rows.map(r => r.map(item => `"${String(item).replace(/"/g,'""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'neonlens_export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+})
+
+// small UX: allow Enter key in inputs
+document.querySelectorAll('input').forEach(inp=>{
+  inp.addEventListener('keypress', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); const id = e.target.id; if(id==='hero-handle') el('hero-analyze').click(); if(id==='search-handle') el('search-go').click(); if(id==='login-pass') el('login-btn').click(); } })
+})
+
+// initial preview image fallback if ai image missing
+document.addEventListener('DOMContentLoaded', ()=> {
+  // if ai images are missing they'll simply not show; layout continues with gradient.
+})
+
+</script>
+</body>
+</html>
