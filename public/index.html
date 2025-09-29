@@ -1,0 +1,423 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Instagram Scraper</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Instagram Profile Scraper</h1>
+        <input type="text" id="username" placeholder="Enter Instagram username">
+        <button onclick="fetchData()">Fetch Data</button>
+
+        <div id="profile-info" class="card"></div>
+        <canvas id="engagementChart" width="400" height="200"></canvas>
+        <div id="recent-posts" class="posts-grid"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> -->
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NeonLens — Instagram Scraper</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#04050a;
+      --panel:#0c0e14;
+      --muted:#9aa2b2;
+      --accent-cyan:#7cf3ff;
+      --accent-purple:#8a6bff;
+      --accent-pink:#ff7bd1;
+      --glass: rgba(255,255,255,0.03);
+      --glass-border: rgba(255,255,255,0.04);
+      --text:#e6f3ff;
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#03040a 0%, #070914 70%);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    .wrap{max-width:1100px;margin:30px auto;padding:28px;position:relative;z-index:5}
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent-cyan),var(--accent-purple));display:flex;align-items:center;justify-content:center;font-weight:800;color:#04111a}
+    h1{font-size:20px;margin:0}
+    .sub{color:var(--muted);font-size:13px}
+    .searchbar{display:flex;gap:10px;align-items:center}
+    .input{display:flex;align-items:center;background:var(--glass);padding:8px;border-radius:12px;border:1px solid var(--glass-border);min-width:320px}
+    .input input{background:transparent;border:0;outline:none;color:var(--text);font-size:14px;padding:6px;width:240px}
+    .btn{padding:9px 14px;border-radius:8px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:var(--text);transition:all .18s}
+    .btn.primary{background:linear-gradient(90deg,#4f46e5,#6366f1);color:#fff}
+    .btn.primary:hover{background:linear-gradient(90deg,#4338ca,#4f46e5);transform:translateY(-2px)}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:20px}
+    .card{background:var(--glass);border-radius:14px;padding:16px;border:1px solid var(--glass-border)}
+    .profile-card{text-align:center}
+    .pf-img{width:110px;height:110px;border-radius:18px;object-fit:cover}
+    .pf-name{font-weight:800;font-size:18px}
+    .pf-handle{color:var(--muted);font-size:13px}
+    .stats{display:flex;gap:10px;margin-top:8px}
+    .stat{flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02)}
+    .stat strong{display:block;font-size:18px}
+    .right-grid{display:grid;gap:18px}
+    .top-metrics{display:flex;gap:12px;margin-top:12px}
+    .metric-card{flex:1;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);text-align:center}
+    .charts{padding:12px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid var(--glass-border)}
+    .tab-buttons{display:flex;gap:8px;margin-bottom:12px}
+    .tab-buttons button{flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.05);color:var(--text);font-weight:600;transition:0.2s}
+    .tab-buttons button.active{background:linear-gradient(90deg,#7cf3ff,#8a6bff);color:#04111a}
+    .tab-content{display:none}
+    .tab-content.active{display:block;animation:fadeIn 0.6s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}
+    .post{border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.02);cursor:pointer;transition:.2s}
+    .post:hover{transform:translateY(-4px)}
+    .post img{width:100%;height:120px;object-fit:cover}
+    .footer{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
+    .small-muted{color:var(--muted);font-size:12px}
+    @media(max-width:980px){.layout{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">NL</div>
+        <div>
+          <h1>NeonLens — Instagram Scraper</h1>
+          <div class="sub">Fast influencer snapshot · public data only</div>
+        </div>
+      </div>
+      <div class="searchbar">
+        <div class="input"><input id="username" placeholder="Enter Instagram username" /></div>
+        <button class="btn primary" id="fetchBtn">Fetch Data</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="card profile-card" id="profile-info">
+        <img id="profile-pic" class="pf-img" src="ai-profile.jpg" alt="profile">
+        <div class="pf-name" id="profile-name">—</div>
+        <div class="pf-handle" id="profile-username">@—</div>
+        <div class="stats">
+          <div class="stat"><strong id="followers">—</strong><small>Followers</small></div>
+          <div class="stat"><strong id="following">—</strong><small>Following</small></div>
+        </div>
+      </div>
+
+      <div class="right-grid">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><div class="small-muted">Overview</div>
+              <div style="font-weight:800;font-size:18px" id="overview-title">Profile Analytics</div>
+            </div>
+            <div style="text-align:right">
+              <div class="small-muted">Posts analyzed</div>
+              <div style="font-weight:800" id="postsCount">—</div>
+            </div>
+          </div>
+
+          <div class="top-metrics">
+            <div class="metric-card"><small>Avg Likes</small><div id="avgLikes">—</div></div>
+            <div class="metric-card"><small>Avg Comments</small><div id="avgComments">—</div></div>
+            <div class="metric-card"><small>Engagement Rate</small><div id="engRate">—</div></div>
+          </div>
+        </div>
+
+        <!-- Charts with Tabs -->
+        <div class="card charts">
+          <div class="tab-buttons">
+            <button id="likesTab" class="active">Likes Trend</button>
+            <button id="commentsTab">Comments Trend</button>
+          </div>
+          <div id="likesChartWrap" class="tab-content active" style="min-height:160px">
+            <!-- We'll use this canvas for the engagement bar (when displayEngagementChart is called)
+                 and also for likes trend if you later choose to render it. -->
+            <canvas id="likesChart"></canvas>
+          </div>
+          <div id="commentsChartWrap" class="tab-content">
+            <canvas id="commentsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Recent posts</div>
+          <div id="recentPosts" class="posts-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">© NeonLens 2025 · Built with a neon theme</div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const fetchBtn = document.getElementById('fetchBtn');
+    const usernameInput = document.getElementById('username');
+
+    const profilePic = document.getElementById('profile-pic');
+    const profileName = document.getElementById('profile-name');
+    const profileUsername = document.getElementById('profile-username');
+    const followersEl = document.getElementById('followers');
+    const followingEl = document.getElementById('following');
+    const avgLikesEl = document.getElementById('avgLikes');
+    const avgCommentsEl = document.getElementById('avgComments');
+    const engRateEl = document.getElementById('engRate');
+    const postsCountEl = document.getElementById('postsCount');
+    const recentPostsEl = document.getElementById('recentPosts');
+
+    // Chart.js instances
+    let engagementChartInstance = null;
+    let likesTrendInstance = null;
+    let commentsTrendInstance = null;
+
+    // Wire up fetch button
+    fetchBtn.addEventListener('click', fetchData);
+
+    // --- fetchData (keeps same API & behavior as your old script.js) ---
+    async function fetchData() {
+      const username = usernameInput.value.trim();
+      if (!username) {
+        alert('Please enter a username');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+
+        // If server returns non-2xx, try to parse JSON error
+        if (!response.ok) {
+          let errText = 'Failed to fetch data';
+          try {
+            const errJson = await response.json();
+            errText = errJson.error || errText;
+          } catch (e) {
+            // ignore parse error
+          }
+          throw new Error(errText);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+
+        // The old script.js expected displayProfileInfo, displayEngagementChart, displayRecentPosts
+        displayProfileInfo(data.profile);
+        displayEngagementChart(data.engagement);
+        displayRecentPosts(data.posts);
+
+        // Additionally render trends (likes/comments) into the existing canvases if posts present:
+        if (Array.isArray(data.posts) && data.posts.length > 0) {
+          renderLikesTrend(data.posts);
+          renderCommentsTrend(data.posts);
+        }
+
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to fetch data');
+      }
+    }
+
+    // --- displayProfileInfo: adapts your old function to existing UI elements
+    function displayProfileInfo(profile) {
+      // profile expected shape (from server.js):
+      // { name, username, followers, following, posts, profilePic }
+      profilePic.src = profile.profilePic || 'ai-profile.jpg';
+      profilePic.alt = profile.name || profile.username || 'profile';
+      profileName.textContent = profile.name || profile.username || '—';
+      profileUsername.textContent = '@' + (profile.username || '—');
+      followersEl.textContent = profile.followers != null ? profile.followers : '—';
+      followingEl.textContent = profile.following != null ? profile.following : '—';
+      postsCountEl.textContent = profile.posts != null ? profile.posts : '—';
+    }
+
+    // --- displayEngagementChart: old script drew a bar chart of [avgLikes, avgComments, engagementRate]
+    // We draw it into the likesChart canvas (visible in the UI)
+    function displayEngagementChart(engagement) {
+      // engagement expected shape: { avgLikes, avgComments, engagementRate }
+      avgLikesEl.textContent = Number(engagement.avgLikes ?? 0).toFixed(0);
+      avgCommentsEl.textContent = Number(engagement.avgComments ?? 0).toFixed(0);
+
+      // engagementRate could be in percent (server computes percentage). Show nicely.
+      const rate = (engagement.engagementRate != null) ? Number(engagement.engagementRate) : 0;
+      engRateEl.textContent = (Math.round(rate * 100) / 100) + '%';
+
+      const ctx = document.getElementById('likesChart').getContext('2d');
+      if (engagementChartInstance) {
+        engagementChartInstance.destroy();
+        engagementChartInstance = null;
+      }
+
+      engagementChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Avg Likes', 'Avg Comments', 'Engagement Rate %'],
+          datasets: [{
+            label: 'Metrics',
+            data: [
+              Number(engagement.avgLikes ?? 0),
+              Number(engagement.avgComments ?? 0),
+              Number(engagement.engagementRate ?? 0)
+            ],
+            backgroundColor: [
+              // subtle palettes that match the theme (Chart.js will pick defaults if left out)
+              'rgba(124,243,255,0.9)',
+              'rgba(138,107,255,0.9)',
+              'rgba(255,123,209,0.9)'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          animation: { duration: 800 },
+          responsive: true,
+          scales: {
+            x: {
+              ticks: { color: '#9aa2b2' }
+            },
+            y: {
+              ticks: { color: '#9aa2b2' },
+              beginAtZero: true
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          }
+        }
+      });
+    }
+
+    // --- displayRecentPosts: adapts to your posts-grid UI
+    function displayRecentPosts(posts) {
+      // keep compatibility: older script shows caption, likes, comments, hashtags
+      recentPostsEl.innerHTML = '';
+      if (!Array.isArray(posts) || posts.length === 0) {
+        recentPostsEl.innerHTML = '<div style="color:var(--muted)">No posts found</div>';
+        return;
+      }
+
+      posts.forEach(post => {
+        const d = document.createElement('div');
+        d.className = 'post';
+        // Build safe HTML with fields available
+        const caption = post.caption ? `<div style="padding:6px;font-size:12px;min-height:32px">${escapeHtml(post.caption)}</div>` : `<div style="padding:6px;font-size:12px;min-height:32px;color:var(--muted)">No caption</div>`;
+        const meta = `<div style="padding:6px;font-size:11px;color:var(--muted)"><strong>Likes:</strong> ${Number(post.likes||0)} &nbsp; <strong>Comments:</strong> ${Number(post.comments||0)}</div>`;
+        const hashtags = (Array.isArray(post.hashtags) && post.hashtags.length) ? `<div style="padding:6px;font-size:11px;color:var(--muted)">${post.hashtags.map(h=>escapeHtml(h)).join(' ')}</div>` : '';
+        const imageSrc = post.image || 'ai-profile.jpg';
+        d.innerHTML = `<img src="${escapeAttr(imageSrc)}" alt="post image">` + caption + meta + hashtags;
+        recentPostsEl.appendChild(d);
+      });
+    }
+
+    // --- small utilities for rendering & escaping
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+    function escapeAttr(s){ return escapeHtml(s); }
+
+    // --- small functions to render likes/comment trends into the chart canvases (optional, but useful) ---
+    function renderLikesTrend(posts){
+      const ctx = document.getElementById('likesChart').getContext('2d');
+      // If engagement bar is present, destroying above first:
+      if (engagementChartInstance) {
+        engagementChartInstance.destroy();
+        engagementChartInstance = null;
+      }
+      if (likesTrendInstance) likesTrendInstance.destroy();
+
+      const labels = posts.slice(0, 8).map((_,i)=>`Post ${i+1}`);
+      const dataVals = posts.slice(0, 8).map(p => Number(p.likes||0));
+
+      likesTrendInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Likes',
+            data: dataVals,
+            borderColor: '#7cf3ff',
+            backgroundColor: 'rgba(124,243,255,0.15)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          animation: { duration: 700 },
+          scales: {
+            x: { ticks: { color: '#9aa2b2' } },
+            y: { ticks: { color: '#9aa2b2' }, beginAtZero: true }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function renderCommentsTrend(posts){
+      const ctx = document.getElementById('commentsChart').getContext('2d');
+      if (commentsTrendInstance) commentsTrendInstance.destroy();
+
+      const labels = posts.slice(0, 8).map((_,i)=>`Post ${i+1}`);
+      const dataVals = posts.slice(0, 8).map(p => Number(p.comments||0));
+
+      commentsTrendInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Comments',
+            data: dataVals,
+            borderColor: '#8a6bff',
+            backgroundColor: 'rgba(138,107,255,0.12)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          animation: { duration: 700 },
+          scales: {
+            x: { ticks: { color: '#9aa2b2' } },
+            y: { ticks: { color: '#9aa2b2' }, beginAtZero: true }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Tab switching (keeps your existing behavior)
+    document.getElementById("likesTab").addEventListener("click", ()=>{
+      document.getElementById("likesChartWrap").classList.add("active");
+      document.getElementById("commentsChartWrap").classList.remove("active");
+      document.getElementById("likesTab").classList.add("active");
+      document.getElementById("commentsTab").classList.remove("active");
+    });
+    document.getElementById("commentsTab").addEventListener("click", ()=>{
+      document.getElementById("commentsChartWrap").classList.add("active");
+      document.getElementById("likesChartWrap").classList.remove("active");
+      document.getElementById("commentsTab").classList.add("active");
+      document.getElementById("likesTab").classList.remove("active");
+    });
+
+  </script>
+</body>
+</html>
