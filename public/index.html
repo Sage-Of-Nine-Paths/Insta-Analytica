@@ -556,8 +556,14 @@
                 const caption = post.caption ? `<div style="padding:6px;font-size:12px;min-height:32px">${escapeHtml(post.caption)}</div>` : `<div style="padding:6px;font-size:12px;min-height:32px;color:var(--muted)">No caption</div>`;
                 const meta = `<div style="padding:6px;font-size:11px;color:var(--muted)"><strong>Likes:</strong> ${Number(post.likes || 0)} &nbsp; <strong>Comments:</strong> ${Number(post.comments || 0)}</div>`;
                 const hashtags = (Array.isArray(post.hashtags) && post.hashtags.length) ? `<div style="padding:6px;font-size:11px;color:var(--muted)">${post.hashtags.map(h => escapeHtml(h)).join(' ')}</div>` : '';
-                const imageSrc = post.image || 'ai-profile.jpg';
-                d.innerHTML = `<img src="${escapeAttr(imageSrc)}" alt="post image">` + caption + meta + hashtags;
+                // Wrap the real Instagram image in your proxy endpoint
+                const proxiedImage = post.image
+                    ? `/api/proxy-image?url=${encodeURIComponent(post.image)}`
+                    : 'ai-profile.jpg';
+
+                d.innerHTML = `<img src="${escapeAttr(proxiedImage)}" alt="post image">`
+                    + caption + meta + hashtags;
+
                 recentPostsEl.appendChild(d);
             });
         }
